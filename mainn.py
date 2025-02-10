@@ -3,8 +3,9 @@ import datetime
 
 class CricketTournamentDashboard:
     def __init__(self):
-        self.boys_teams = []
-        self.girls_teams = []
+        # Initialize with provided teams
+        self.boys_teams = ["Mumbai Indians", "Chennai Superkings", "Punjab", "Kolkata", "Delhi", "RCB"]
+        self.girls_teams = ["Strikers", "Thunderbolt", "LSS warriors", "Queens", "Nessle", "Tissot"]
         self.boys_matches = {}
         self.girls_matches = {}
 
@@ -22,7 +23,7 @@ class CricketTournamentDashboard:
 
     def display_schedule(self, matches):
         for match_id, details in matches.items():
-            st.write(f"{match_id}: {details['team1']} vs {details['team2']} ({details['date']})  Winner: {details.get('winner', 'TBD')}") #Show Winner or TBD
+            st.write(f"{match_id}: {details['team1']} vs {details['team2']} ({details['date']})  Winner: {details.get('winner', 'TBD')}")
 
     def generate_schedule(self, team_list, matches, group_name, selected_date):
         if not team_list:
@@ -36,10 +37,34 @@ class CricketTournamentDashboard:
                 st.warning("Not enough teams for a match.")
                 return
 
-            for i in range(0, num_teams, 2):
-                if i + 1 < num_teams:
-                    match_id = f"Match {i // 2 + 1}"
-                    matches[match_id] = {"team1": team_list[i], "team2": team_list[i + 1], "date": selected_date, "winner": None}
+            # Knockout Logic (Handles byes)
+            round_num = 1
+            teams_in_round = list(team_list)  # Copy the team list
+            while len(teams_in_round) > 1:
+                matches_in_round = {}
+                match_num = 1
+                while len(teams_in_round) >= 2:
+                    team1 = teams_in_round.pop(0)
+                    team2 = teams_in_round.pop(0)
+                    match_id = f"Round {round_num} - Match {match_num}"  # More descriptive match IDs
+                    matches_in_round[match_id] = {"team1": team1, "team2": team2, "date": selected_date, "winner": None}
+                    match_num += 1
+
+                # Handle Bye (if odd number of teams)
+                if teams_in_round:
+                    bye_team = teams_in_round.pop(0)
+                    match_id = f"Round {round_num} - Bye"
+                    matches_in_round[match_id] = {"team1": bye_team, "team2": "BYE", "date": selected_date, "winner": bye_team} # Auto win for bye
+
+                matches.update(matches_in_round) # Add to the main matches dict
+                
+                # Prepare teams for the next round (winners)
+                winners_next_round = []
+                for match_id, details in matches_in_round.items():
+                    if "Bye" not in match_id: # Don't add bye "winners"
+                        winners_next_round.append(details.get("winner"))  # Winner or None
+                teams_in_round = [team for team in winners_next_round if team is not None] # Remove Nones
+                round_num += 1
 
         else:  # Girls matches (round robin)
             matches.clear()
@@ -51,12 +76,12 @@ class CricketTournamentDashboard:
         self.display_schedule(matches)
 
     def update_result(self, match_id, winner, matches):
-        if match_id in matches and winner:
+        if match_id in matches:
             matches[match_id]["winner"] = winner
             st.success(f"{match_id} updated: Winner - {winner}")
             self.display_schedule(matches)  # Refresh the schedule
         else:
-            st.warning("Invalid match ID or winner.")
+            st.warning("Invalid match ID.")
 
 
 # Streamlit app
@@ -65,7 +90,7 @@ st.title("Cricket Tournament Dashboard")
 dashboard = CricketTournamentDashboard()
 
 # Boys Teams
-boys_team_col, boys_schedule_col = st.columns(2)  # Two columns for layout
+boys_team_col, boys_schedule_col = st.columns(2)
 
 with boys_team_col:
     st.subheader("Boys Teams")
