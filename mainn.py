@@ -1,137 +1,68 @@
 import streamlit as st
-import datetime
+import pandas as pd
+from datetime import datetime, date
 
-class CricketTournamentDashboard:
-    def __init__(self):
-        # Initialize with provided teams
-        self.boys_teams = ["Mumbai Indians", "Chennai Superkings", "Punjab", "Kolkata", "Delhi", "RCB"]
-        self.girls_teams = ["Strikers", "Thunderbolt", "LSS warriors", "Queens", "Nessle", "Tissot"]
-        self.boys_matches = {}
-        self.girls_matches = {}
+# Sample match data (replace with your actual data)
+match_data = {
+    'Date': ['2024-03-10', '2024-03-10', '2024-03-11', '2024-03-11', '2024-03-12'],
+    'Time': ['10:00 AM', '2:00 PM', '11:00 AM', '3:00 PM', '1:00 PM'],
+    'Team 1': ['Team A', 'Team C', 'Team B', 'Team D', 'Team A'],
+    'Team 2': ['Team B', 'Team D', 'Team A', 'Team C', 'Team C'],
+    'Venue': ['Ground 1', 'Ground 2', 'Ground 1', 'Ground 2', 'Ground 1'],
+    'Result': ['', '', '', '', ''],  # Add results as the tournament progresses
+}
 
-    def display_teams(self, team_list, team_type):
-        st.subheader(f"{team_type} Teams")
-        for team in team_list:
-            st.write(team)
-
-    def add_team(self, team_name, team_list, team_type):
-        if team_name:
-            team_list.append(team_name)
-            st.success(f"{team_name} added to {team_type} Teams")
-        else:
-            st.warning("Please enter a team name.")
-
-    def display_schedule(self, matches):
-        for match_id, details in matches.items():
-            st.write(f"{match_id}: {details['team1']} vs {details['team2']} ({details['date']})  Winner: {details.get('winner', 'TBD')}")
-
-    def generate_schedule(self, team_list, matches, group_name, selected_date):
-        if not team_list:
-            st.warning("No teams added yet.")
-            return
-
-        if "Boys" in group_name:
-            matches.clear()
-            num_teams = len(team_list)
-            if num_teams < 2:
-                st.warning("Not enough teams for a match.")
-                return
-
-            # Knockout Logic (Handles byes)
-            round_num = 1
-            teams_in_round = list(team_list)  # Copy the team list
-            while len(teams_in_round) > 1:
-                matches_in_round = {}
-                match_num = 1
-                while len(teams_in_round) >= 2:
-                    team1 = teams_in_round.pop(0)
-                    team2 = teams_in_round.pop(0)
-                    match_id = f"Round {round_num} - Match {match_num}"  # More descriptive match IDs
-                    matches_in_round[match_id] = {"team1": team1, "team2": team2, "date": selected_date, "winner": None}
-                    match_num += 1
-
-                # Handle Bye (if odd number of teams)
-                if teams_in_round:
-                    bye_team = teams_in_round.pop(0)
-                    match_id = f"Round {round_num} - Bye"
-                    matches_in_round[match_id] = {"team1": bye_team, "team2": "BYE", "date": selected_date, "winner": bye_team} # Auto win for bye
-
-                matches.update(matches_in_round) # Add to the main matches dict
-                
-                # Prepare teams for the next round (winners)
-                winners_next_round = []
-                for match_id, details in matches_in_round.items():
-                    if "Bye" not in match_id: # Don't add bye "winners"
-                        winners_next_round.append(details.get("winner"))  # Winner or None
-                teams_in_round = [team for team in winners_next_round if team is not None] # Remove Nones
-                round_num += 1
-
-        else:  # Girls matches (round robin)
-            matches.clear()
-            for i in range(len(team_list)):
-                for j in range(i + 1, len(team_list)):
-                    match_id = f"Match {len(matches) + 1}"
-                    matches[match_id] = {"team1": team_list[i], "team2": team_list[j], "date": selected_date, "winner": None}
-
-        self.display_schedule(matches)
-
-    def update_result(self, match_id, winner, matches):
-        if match_id in matches:
-            matches[match_id]["winner"] = winner
-            st.success(f"{match_id} updated: Winner - {winner}")
-            self.display_schedule(matches)  # Refresh the schedule
-        else:
-            st.warning("Invalid match ID.")
+df = pd.DataFrame(match_data)
+df['Date'] = pd.to_datetime(df['Date']) # Convert 'Date' column to datetime objects
 
 
-# Streamlit app
 st.title("Cricket Tournament Dashboard")
 
-dashboard = CricketTournamentDashboard()
+# Date Filter
+min_date = df['Date'].min().date()
+max_date = df['Date'].max().date()
+selected_date = st.date_input("Select Date", min_value=min_date, max_value=max_date, value=min_date)
 
-# Boys Teams
-boys_team_col, boys_schedule_col = st.columns(2)
-
-with boys_team_col:
-    st.subheader("Boys Teams")
-    boys_team_input = st.text_input("Enter Boys Team Name:")
-    if st.button("Add Boys Team"):
-        dashboard.add_team(boys_team_input, dashboard.boys_teams, "Boys")
-    dashboard.display_teams(dashboard.boys_teams, "Boys")
-
-with boys_schedule_col:
-    st.subheader("Boys Schedule")
-    boys_date = st.date_input("Select Date for Boys Matches")
-    if st.button("Generate Boys Schedule"):
-        dashboard.generate_schedule(dashboard.boys_teams, dashboard.boys_matches, "Boys", boys_date.strftime("%Y-%m-%d"))
-    dashboard.display_schedule(dashboard.boys_matches)
-
-    st.subheader("Update Boys Match Result")
-    boys_match_id = st.text_input("Boys Match ID:")
-    boys_winner = st.text_input("Boys Winner:")
-    if st.button("Update Boys Result"):
-        dashboard.update_result(boys_match_id, boys_winner, dashboard.boys_matches)
+# Convert the selected date to datetime for filtering
+selected_datetime = datetime.combine(selected_date, datetime.min.time())
 
 
-# Girls Teams (similar structure)
-girls_team_col, girls_schedule_col = st.columns(2)
 
-with girls_team_col:
-    st.subheader("Girls Teams")
-    girls_team_input = st.text_input("Enter Girls Team Name:")
-    if st.button("Add Girls Team"):
-        dashboard.add_team(girls_team_input, dashboard.girls_teams, "Girls")
-    dashboard.display_teams(dashboard.girls_teams, "Girls")
+# Filtering the DataFrame based on the selected date
+filtered_df = df[df['Date'].dt.date == selected_date]
 
-with girls_schedule_col:
-    st.subheader("Girls Schedule")
-    girls_date = st.date_input("Select Date for Girls Matches")
-    if st.button("Generate Girls Schedule"):
-        dashboard.generate_schedule(dashboard.girls_teams, dashboard.girls_matches, "Girls", girls_date.strftime("%Y-%m-%d"))
-    dashboard.display_schedule(dashboard.girls_matches)
 
-    st.subheader("Update Girls Match Result")
-    girls_match_id = st.text_input("Girls Match ID:")
-    girls_winner = st.text_input("Girls Winner:")
-    if st.button("Update Girls Result"):
-        dashboard.update_result(girls_match_id, girls_winner, dashboard.girls_matches)
+
+if not filtered_df.empty:
+    st.subheader(f"Matches on {selected_date.strftime('%Y-%m-%d')}")  # Display the selected date
+
+    # Display matches in a table
+    st.dataframe(filtered_df[['Time', 'Team 1', 'Team 2', 'Venue', 'Result']],  # Displaying the required columns
+                 column_config={
+                     "Result": st.column_config.ColumnConfig(
+                         "Result",
+                         width="medium",
+                         # Add a selectbox for updating results (if needed)
+                         # You'll need more logic to save these results
+                         # e.g., using a session state or writing to a file.
+                     )
+                 },
+                 )
+
+else:
+    st.write(f"No matches scheduled on {selected_date.strftime('%Y-%m-%d')}")
+
+
+
+# --- Overall Tournament Schedule (Optional) ---
+st.subheader("Overall Tournament Schedule")
+st.dataframe(df[['Date', 'Time', 'Team 1', 'Team 2', 'Venue', 'Result']])  # Display all matches
+
+
+
+# --- Add more features as needed ---
+# For example:
+# - Team standings
+# - Top scorers
+# - Graphs and charts
+# - Admin panel to update match results (requires more complex state management)
